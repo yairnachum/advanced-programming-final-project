@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Computational Graph</title>
+    <link rel="stylesheet" href="/app/theme.css">
+    <style>
+        body {
+            min-height: 100vh;
+            padding: 18px;
+        }
+        .graph-shell {
+            max-width: 880px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .graph-meta {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            margin-bottom: 10px;
+        }
+        .graph-canvas {
+            background:
+                radial-gradient(ellipse 70% 60% at 50% 50%, rgba(167,139,250,.04), transparent),
+                var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            position: relative;
+        }
+        .graph-canvas::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(167,139,250,.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(167,139,250,.04) 1px, transparent 1px);
+            background-size: 32px 32px;
+            background-position: center center;
+            border-radius: var(--radius);
+            pointer-events: none;
+        }
+        .graph-canvas svg {
+            position: relative;
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }
+        .legend {
+            display: inline-flex; gap: 14px;
+            margin-top: 14px;
+            padding: 7px 14px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 999px;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+        .swatch { display: inline-block; width: 12px; height: 12px; border: 1.5px solid; border-radius: 3px; }
+        .swatch.topic { background: var(--topic-bg); border-color: var(--topic); }
+        .swatch.agent { background: var(--agent-bg); border-color: var(--agent); border-radius: 50%; }
+        .swatch.cycle { background: rgba(239,68,68,.15); border-color: var(--danger); }
+    </style>
+</head>
+<body>
+<div class="graph-shell">
+    <div class="graph-meta">topics · agents · directed edges</div>
+    <div class="graph-canvas">
+        {GRAPH_SVG}
+    </div>
+    <div class="legend">
+        <span class="legend-item"><span class="swatch topic"></span>Topic</span>
+        <span class="legend-item"><span class="swatch agent"></span>Agent</span>
+        <span class="legend-item"><span class="swatch cycle"></span>Cycle</span>
+    </div>
+</div>
+</body>
+</html>

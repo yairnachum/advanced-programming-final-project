@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pendulum Simulator — PubSub Console</title>
+    <link rel="stylesheet" href="/app/theme.css">
+    <style>
+        html, body { height: 100%; }
+        main.split {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 14px;
+            padding: 14px;
+            height: calc(100vh - 60px);
+        }
+        @media (max-width: 1080px) {
+            main.split { grid-template-columns: 1fr; height: auto; }
+            main.split .pane { min-height: 480px; }
+        }
+        .pane-title .live-meta {
+            margin-left: auto;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--text-faint);
+            letter-spacing: .04em;
+            text-transform: none;
+        }
+        .canvas-wrap {
+            flex: 1; position: relative; overflow: hidden;
+            background:
+                radial-gradient(ellipse 70% 60% at 50% 50%, rgba(167,139,250,.05), transparent),
+                var(--surface);
+        }
+        .canvas-wrap::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(167,139,250,.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(167,139,250,.04) 1px, transparent 1px);
+            background-size: 32px 32px;
+            background-position: center center;
+            pointer-events: none;
+        }
+        svg.graph { position: relative; display: block; width: 100%; height: 100%; }
+
+        /* GRAPH NODES & EDGES */
+        .col-header {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            fill: var(--text-faint);
+            text-anchor: middle;
+        }
+        .topic-rect {
+            fill: rgba(34,197,94,.08);
+            stroke: var(--topic);
+            stroke-width: 1.4;
+            rx: 8; ry: 8;
+            transition: filter var(--dur-slow) var(--ease);
+        }
+        .topic-rect.output {
+            fill: rgba(245,158,11,.08);
+            stroke: var(--output);
+        }
+        .topic-rect.live {
+            filter: drop-shadow(0 0 12px rgba(167,139,250,.55));
+        }
+        .topic-name {
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            fill: var(--topic);
+            text-anchor: middle;
+            letter-spacing: .04em;
+        }
+        .topic-rect.output ~ .topic-name { fill: var(--output); }
+        .topic-value {
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            font-weight: 700;
+            fill: var(--text);
+            text-anchor: middle;
+        }
+        .topic-unit {
+            font-family: 'Fira Code', monospace;
+            font-size: 9px;
+            fill: var(--text-faint);
+            text-anchor: middle;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+        .agent-circle {
+            fill: rgba(167,139,250,.10);
+            stroke: var(--agent);
+            stroke-width: 1.6;
+        }
+        .agent-circle.alive {
+            animation: agent-pulse 1.8s var(--ease) infinite;
+        }
+        @keyframes agent-pulse {
+            0%, 100% { filter: drop-shadow(0 0 0 rgba(167,139,250,0)); }
+            50% { filter: drop-shadow(0 0 14px rgba(167,139,250,.65)); }
+        }
+        .agent-circle.firing { animation: agent-fire .35s var(--ease-out); }
+        @keyframes agent-fire {
+            0%   { filter: drop-shadow(0 0 0 rgba(167,139,250,0)); }
+            45%  { filter: drop-shadow(0 0 18px rgba(167,139,250,.95)); }
+            100% { filter: drop-shadow(0 0 0 rgba(167,139,250,0)); }
+        }
+        .agent-label {
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            fill: var(--agent);
+            text-anchor: middle;
+        }
+        .agent-formula {
+            font-family: 'Fira Code', monospace;
+            font-size: 9px;
+            fill: var(--text-muted);
+            text-anchor: middle;
+            letter-spacing: .02em;
+        }
+        .edge { fill: none; }
+        .edge.tick    { stroke: #ec4899; stroke-width: 2; }
+        .edge.param   { stroke: var(--text-faint); stroke-width: 1.3; stroke-dasharray: 4 5; opacity: .5; }
+        .edge.compute { stroke: var(--agent); stroke-width: 2; }
+        .edge.feedback{ stroke: var(--output); stroke-width: 1.6; stroke-dasharray: 6 4; opacity: .7; }
+        .edge.pulse {
+            stroke-dasharray: 7 12;
+            animation: flow .9s linear infinite;
+        }
+        @keyframes flow {
+            from { stroke-dashoffset: 19; }
+            to   { stroke-dashoffset: 0; }
+        }
+
+        /* PENDULUM */
+        .pendulum-box {
+            flex: 1; position: relative;
+            background:
+                radial-gradient(ellipse 80% 70% at 50% 30%, rgba(34,197,94,.06), transparent 60%),
+                linear-gradient(180deg, var(--bg) 0%, #050B1F 100%);
+            overflow: hidden;
+        }
+        .pendulum-box::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+        svg.pendulum {
+            position: relative;
+            display: block; width: 100%; height: 100%;
+        }
+        .readout {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .ro {
+            background: var(--surface);
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .ro .lbl {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--text-faint);
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        .ro .val {
+            font-family: var(--font-mono);
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--topic);
+            font-variant-numeric: tabular-nums;
+        }
+        .ro.energy .val { color: var(--output); }
+
+        .controls-grid {
+            padding: 14px;
+            display: flex; flex-direction: column;
+            gap: 12px;
+        }
+        .ctrl {
+            display: grid;
+            grid-template-columns: 84px 1fr 64px;
+            gap: 10px;
+            align-items: center;
+        }
+        .ctrl label {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .ctrl input[type=range] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+            cursor: pointer;
+            margin: 0;
+        }
+        .ctrl input[type=range]::-webkit-slider-runnable-track {
+            height: 4px;
+            background: linear-gradient(90deg, var(--topic) var(--pct, 0%), var(--surface-3) var(--pct, 0%));
+            border-radius: 999px;
+        }
+        .ctrl input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            background: var(--text);
+            border-radius: 50%;
+            margin-top: -5px;
+            box-shadow: 0 0 0 2px var(--topic), 0 2px 6px rgba(0,0,0,.6);
+            transition: transform var(--dur-fast) var(--ease);
+        }
+        .ctrl input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        .ctrl input[type=range]::-moz-range-track {
+            height: 4px;
+            background: var(--surface-3);
+            border-radius: 999px;
+        }
+        .ctrl input[type=range]::-moz-range-thumb {
+            width: 14px; height: 14px;
+            background: var(--text);
+            border: 0;
+            border-radius: 50%;
+        }
+        .ctrl .val {
+            font-family: var(--font-mono);
+            font-size: var(--text-sm);
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+        }
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 0 14px 14px;
+        }
+        .actions .btn { padding: 0 10px; font-size: var(--text-xs); height: 36px; }
+    </style>
+</head>
+<body>
+
+<header class="app-header" role="banner">
+    <div class="brand">
+        <div class="brand-mark" aria-hidden="true">⌘</div>
+        <div>
+            <div class="brand-name">Pendulum Simulator</div>
+            <div style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-faint); letter-spacing:.05em">Newton's second law · pub/sub graph</div>
+        </div>
+    </div>
+    <span class="brand-tag">physics pipeline</span>
+    <div class="header-spacer"></div>
+    <span class="status-led">integrating · 30 Hz</span>
+    <a class="nav-link" href="/app/index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Console
+    </a>
+</header>
+
+<main class="split">
+
+    <section class="pane" aria-labelledby="gTitle">
+        <div class="pane-title agent-tone live">
+            <span class="dot"></span>
+            <span id="gTitle">Computational Graph</span>
+            <span class="live-meta">topics · agents · live values</span>
+        </div>
+        <div class="canvas-wrap">
+            <svg class="graph" id="graph" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+                    </marker>
+                    <marker id="arr-tick" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#ec4899"/>
+                    </marker>
+                    <marker id="arr-cmp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#A78BFA"/>
+                    </marker>
+                    <marker id="arr-fb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#F59E0B"/>
+                    </marker>
+                </defs>
+
+                <text class="col-header" x="120" y="35">Parameters</text>
+                <text class="col-header" x="450" y="35">Compute Pipeline</text>
+                <text class="col-header" x="780" y="35">Output</text>
+
+                <g id="edges"></g>
+                <g id="nodes"></g>
+            </svg>
+        </div>
+    </section>
+
+    <section class="pane" aria-labelledby="pTitle">
+        <div class="pane-title output-tone live">
+            <span class="dot"></span>
+            <span id="pTitle">Pendulum</span>
+            <span class="live-meta">driven by <span class="chip topic" style="margin-left:4px">theta</span></span>
+        </div>
+        <div class="pendulum-box">
+            <svg class="pendulum" id="pendSvg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
+                <path id="trailPath" fill="none" stroke="var(--output)" stroke-width="1" opacity=".3"/>
+                <rect x="170" y="32" width="60" height="6" fill="#334155" rx="2"/>
+                <rect x="160" y="30" width="80" height="3" fill="#475569"/>
+                <circle cx="200" cy="40" r="4" fill="#94a3b8" stroke="#64748b"/>
+                <line id="rod" x1="200" y1="40" x2="200" y2="240" stroke="#94a3b8" stroke-width="2"/>
+                <circle id="bob" cx="200" cy="240" r="20" fill="#F59E0B" stroke="#FBBF24" stroke-width="2"
+                        style="filter: drop-shadow(0 0 12px rgba(245,158,11,.55));"/>
+                <circle id="bobGloss" cx="194" cy="234" r="6" fill="rgba(255,255,255,.35)"/>
+                <line id="velArrow" x1="200" y1="240" x2="200" y2="240" stroke="#22C55E" stroke-width="2" opacity=".8" marker-end="url(#velArr)"/>
+                <defs>
+                    <marker id="velArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#22C55E"/>
+                    </marker>
+                </defs>
+            </svg>
+        </div>
+        <div class="readout">
+            <div class="ro"><div class="lbl">θ rad</div><div class="val" id="rTheta">0.00</div></div>
+            <div class="ro"><div class="lbl">ω rad/s</div><div class="val" id="rOmega">0.00</div></div>
+            <div class="ro"><div class="lbl">α rad/s²</div><div class="val" id="rAlpha">0.00</div></div>
+            <div class="ro energy"><div class="lbl">Energy</div><div class="val" id="rEnergy">0.00</div></div>
+        </div>
+        <div class="controls-grid">
+            <div class="ctrl">
+                <label for="cG">gravity</label>
+                <input type="range" id="cG" min="0" max="25" step="0.1" value="9.8">
+                <span class="val" id="vG">9.80</span>
+            </div>
+            <div class="ctrl">
+                <label for="cL">length</label>
+                <input type="range" id="cL" min="0.2" max="3" step="0.05" value="1.0">
+                <span class="val" id="vL">1.00</span>
+            </div>
+            <div class="ctrl">
+                <label for="cD">damping</label>
+                <input type="range" id="cD" min="0" max="2" step="0.01" value="0.10">
+                <span class="val" id="vD">0.10</span>
+            </div>
+        </div>
+        <div class="actions">
+            <button class="btn" id="kickBtn" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                Kick
+            </button>
+            <button class="btn" id="stopBtn" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                Reset
+            </button>
+            <button class="btn primary" id="moonBtn" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                Moon
+            </button>
+        </div>
+    </section>
+</main>
+
+<script>
+(function() {
+    // ============================================================
+    // GRAPH DEFINITION — matches Java agent wiring.
+    // ============================================================
+    var NODES = [
+        { id: 'gravity', kind: 'topic', x: 120, y: 80,  fmt: 'dec2', unit: 'm/s²' },
+        { id: 'length',  kind: 'topic', x: 120, y: 165, fmt: 'dec2', unit: 'm' },
+        { id: 'damping', kind: 'topic', x: 120, y: 250, fmt: 'dec2', unit: '1/s' },
+        { id: 'dt',      kind: 'topic', x: 120, y: 335, fmt: 'dec3', unit: 's' },
+        { id: 'clock',   kind: 'agent', x: 120, y: 450, label: 'ClockAgent', formula: '30 Hz tick' },
+        { id: 'tick',    kind: 'topic', x: 120, y: 560, fmt: 'int',  unit: 'n' },
+        { id: 'torque',  kind: 'agent', x: 450, y: 130, label: 'TorqueAgent', formula: '-(g/L)·sin(θ)-bω' },
+        { id: 'alpha',   kind: 'topic', x: 450, y: 250, fmt: 'dec3', unit: 'rad/s²', output: true },
+        { id: 'v_int',   kind: 'agent', x: 450, y: 370, label: 'VelocityIntegrator', formula: 'ω += α·dt' },
+        { id: 'p_int',   kind: 'agent', x: 450, y: 570, label: 'PositionIntegrator', formula: 'θ += ω·dt' },
+        { id: 'omega',   kind: 'topic', x: 780, y: 370, fmt: 'dec3', unit: 'rad/s', output: true },
+        { id: 'theta',   kind: 'topic', x: 780, y: 570, fmt: 'dec3', unit: 'rad', output: true, big: true }
+    ];
+
+    var EDGES = [
+        { from: 'clock',   to: 'tick',    type: 'tick',    pulse: true },
+        { from: 'tick',    to: 'torque',  type: 'tick',    pulse: true },
+        { from: 'gravity', to: 'torque',  type: 'param' },
+        { from: 'length',  to: 'torque',  type: 'param' },
+        { from: 'damping', to: 'torque',  type: 'param' },
+        { from: 'torque',  to: 'alpha',   type: 'compute', pulse: true },
+        { from: 'alpha',   to: 'v_int',   type: 'compute', pulse: true },
+        { from: 'dt',      to: 'v_int',   type: 'param' },
+        { from: 'v_int',   to: 'omega',   type: 'compute', pulse: true },
+        { from: 'omega',   to: 'p_int',   type: 'compute', pulse: true },
+        { from: 'dt',      to: 'p_int',   type: 'param' },
+        { from: 'p_int',   to: 'theta',   type: 'compute', pulse: true },
+        { from: 'theta',   to: 'torque',  type: 'feedback' },
+        { from: 'omega',   to: 'torque',  type: 'feedback' }
+    ];
+    var byId = {};
+    NODES.forEach(function(n) { byId[n.id] = n; });
+
+    function fmt(v, f) {
+        if (v == null) return '—';
+        switch (f) {
+            case 'int':  return Math.round(v).toString();
+            case 'dec2': return Number(v).toFixed(2);
+            case 'dec3': return Number(v).toFixed(3);
+            default:     return Number(v).toFixed(2);
+        }
+    }
+    function svgEl(tag, attrs) {
+        var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+        if (attrs) Object.keys(attrs).forEach(function(k) { e.setAttribute(k, attrs[k]); });
+        return e;
+    }
+
+    var nodesG = document.getElementById('nodes');
+    var edgesG = document.getElementById('edges');
+
+    NODES.forEach(function(n) {
+        var g = svgEl('g', { 'data-id': n.id });
+        if (n.kind === 'topic') {
+            var w = n.big ? 130 : 95;
+            var h = n.big ? 60 : 52;
+            var rect = svgEl('rect', { x: n.x - w/2, y: n.y - h/2, width: w, height: h,
+                class: 'topic-rect' + (n.output ? ' output' : ''), id: 'rect-' + n.id });
+            g.appendChild(rect);
+            var name = svgEl('text', { x: n.x, y: n.y - h/2 + 16, class: 'topic-name' });
+            name.textContent = n.id;
+            if (n.output) name.setAttribute('fill', '#F59E0B');
+            g.appendChild(name);
+            var val = svgEl('text', { x: n.x, y: n.y + 4, class: 'topic-value', id: 'val-' + n.id });
+            val.textContent = '—';
+            if (n.big) val.setAttribute('font-size', '17');
+            g.appendChild(val);
+            var unit = svgEl('text', { x: n.x, y: n.y + h/2 - 6, class: 'topic-unit' });
+            unit.textContent = n.unit || '';
+            g.appendChild(unit);
+        } else if (n.kind === 'agent') {
+            var c = svgEl('circle', { cx: n.x, cy: n.y, r: 42, class: 'agent-circle', id: 'circ-' + n.id });
+            g.appendChild(c);
+            var label = svgEl('text', { x: n.x, y: n.y - 4, class: 'agent-label' });
+            label.textContent = n.label;
+            g.appendChild(label);
+            var formula = svgEl('text', { x: n.x, y: n.y + 12, class: 'agent-formula' });
+            formula.textContent = n.formula;
+            g.appendChild(formula);
+        }
+        nodesG.appendChild(g);
+    });
+
+    function anchor(node, side) {
+        if (node.kind === 'topic') {
+            var w = node.big ? 130 : 95, h = node.big ? 60 : 52;
+            if (side === 'right')  return { x: node.x + w/2, y: node.y };
+            if (side === 'left')   return { x: node.x - w/2, y: node.y };
+            if (side === 'top')    return { x: node.x, y: node.y - h/2 };
+            if (side === 'bottom') return { x: node.x, y: node.y + h/2 };
+        } else {
+            if (side === 'right')  return { x: node.x + 42, y: node.y };
+            if (side === 'left')   return { x: node.x - 42, y: node.y };
+            if (side === 'top')    return { x: node.x, y: node.y - 42 };
+            if (side === 'bottom') return { x: node.x, y: node.y + 42 };
+        }
+    }
+    function pickSides(from, to) {
+        var dx = to.x - from.x, dy = to.y - from.y;
+        if (Math.abs(dx) > Math.abs(dy)) {
+            return [dx > 0 ? 'right' : 'left', dx > 0 ? 'left' : 'right'];
+        }
+        return [dy > 0 ? 'bottom' : 'top', dy > 0 ? 'top' : 'bottom'];
+    }
+    function curvePath(a, b) {
+        var dx = b.x - a.x, dy = b.y - a.y;
+        if (Math.abs(dx) > Math.abs(dy)) {
+            var mid = a.x + dx * 0.5;
+            return 'M ' + a.x + ' ' + a.y + ' C ' + mid + ' ' + a.y + ' ' + mid + ' ' + b.y + ' ' + b.x + ' ' + b.y;
+        }
+        var midY = a.y + dy * 0.5;
+        return 'M ' + a.x + ' ' + a.y + ' C ' + a.x + ' ' + midY + ' ' + b.x + ' ' + midY + ' ' + b.x + ' ' + b.y;
+    }
+
+    EDGES.forEach(function(e) {
+        var from = byId[e.from], to = byId[e.to];
+        var sides = pickSides(from, to);
+        var path = svgEl('path', {
+            d: curvePath(anchor(from, sides[0]), anchor(to, sides[1])),
+            class: 'edge ' + e.type + (e.pulse ? ' pulse' : ''),
+            'marker-end': 'url(#arr' + (
+                e.type === 'tick' ? '-tick' :
+                e.type === 'compute' ? '-cmp' :
+                e.type === 'feedback' ? '-fb' : ''
+            ) + ')'
+        });
+        edgesG.appendChild(path);
+    });
+
+    // ============================================================
+    // POLLING /state
+    // ============================================================
+    var lastTick = null, prevValues = {}, inFlight = false;
+    function fireAgent(id) {
+        var c = document.getElementById('circ-' + id);
+        if (!c) return;
+        c.classList.remove('firing');
+        void c.getBoundingClientRect();
+        c.classList.add('firing');
+    }
+    function markTopicLive(id) {
+        var r = document.getElementById('rect-' + id);
+        if (!r) return;
+        r.classList.add('live');
+        clearTimeout(r._t);
+        r._t = setTimeout(function() { r.classList.remove('live'); }, 220);
+    }
+    function poll() {
+        if (inFlight) return;
+        inFlight = true;
+        fetch('/state', { cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(s) {
+                Object.keys(byId).forEach(function(id) {
+                    if (byId[id].kind !== 'topic') return;
+                    if (typeof s[id] !== 'number') return;
+                    var el = document.getElementById('val-' + id);
+                    if (!el) return;
+                    var v = s[id];
+                    el.textContent = fmt(v, byId[id].fmt);
+                    if (prevValues[id] !== v) { markTopicLive(id); prevValues[id] = v; }
+                });
+                if (typeof s.tick === 'number' && s.tick !== lastTick) {
+                    fireAgent('clock'); fireAgent('torque');
+                    setTimeout(function() { fireAgent('v_int'); }, 50);
+                    setTimeout(function() { fireAgent('p_int'); }, 100);
+                    lastTick = s.tick;
+                }
+                document.getElementById('rTheta').textContent = fmt(s.theta, 'dec3');
+                document.getElementById('rOmega').textContent = fmt(s.omega, 'dec3');
+                document.getElementById('rAlpha').textContent = fmt(s.alpha, 'dec3');
+                var g = s.gravity || 9.8, L = s.length || 1, theta = s.theta || 0, omega = s.omega || 0;
+                var E = 0.5 * L * L * omega * omega + g * L * (1 - Math.cos(theta));
+                document.getElementById('rEnergy').textContent = E.toFixed(3);
+                renderPendulum(theta, omega, L);
+            })
+            .catch(function() {})
+            .finally(function() { inFlight = false; });
+    }
+    setInterval(poll, 45);
+    poll();
+
+    // ============================================================
+    // PENDULUM
+    // ============================================================
+    var pivotX = 200, pivotY = 40, pxPerMeter = 130;
+    var trailPts = [];
+    var trailEl = document.getElementById('trailPath');
+    var rod = document.getElementById('rod');
+    var bob = document.getElementById('bob');
+    var bobGloss = document.getElementById('bobGloss');
+    var velArrow = document.getElementById('velArrow');
+
+    function renderPendulum(theta, omega, L) {
+        var px = pivotX + L * pxPerMeter * Math.sin(theta);
+        var py = pivotY + L * pxPerMeter * Math.cos(theta);
+        rod.setAttribute('x2', px); rod.setAttribute('y2', py);
+        bob.setAttribute('cx', px); bob.setAttribute('cy', py);
+        bobGloss.setAttribute('cx', px - 6); bobGloss.setAttribute('cy', py - 6);
+        var vx = L * pxPerMeter * Math.cos(theta) * omega;
+        var vy = -L * pxPerMeter * Math.sin(theta) * omega;
+        var vlen = Math.sqrt(vx*vx + vy*vy);
+        var scale = Math.min(60, vlen * 0.6) / (vlen || 1);
+        velArrow.setAttribute('x1', px); velArrow.setAttribute('y1', py);
+        velArrow.setAttribute('x2', px + vx * scale); velArrow.setAttribute('y2', py + vy * scale);
+        velArrow.setAttribute('opacity', Math.min(0.85, vlen / 80));
+        trailPts.push({ x: px, y: py });
+        if (trailPts.length > 80) trailPts.shift();
+        if (trailPts.length > 2) {
+            var d = 'M ' + trailPts[0].x + ' ' + trailPts[0].y;
+            for (var i = 1; i < trailPts.length; i++) d += ' L ' + trailPts[i].x + ' ' + trailPts[i].y;
+            trailEl.setAttribute('d', d);
+        }
+    }
+
+    function bindSlider(id, topic, valId, dec) {
+        var el = document.getElementById(id), val = document.getElementById(valId);
+        function update() {
+            var min = parseFloat(el.min), max = parseFloat(el.max);
+            var pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
+            el.style.setProperty('--pct', pct + '%');
+            val.textContent = parseFloat(el.value).toFixed(dec);
+        }
+        el.addEventListener('input', function() {
+            update();
+            var v = parseFloat(el.value);
+            fetch('/publish?topic=' + topic + '&message=' + v).catch(function(){});
+        });
+        update();
+    }
+    bindSlider('cG', 'gravity', 'vG', 2);
+    bindSlider('cL', 'length',  'vL', 2);
+    bindSlider('cD', 'damping', 'vD', 2);
+
+    document.getElementById('kickBtn').addEventListener('click', function() {
+        fetch('/publish?topic=theta&message=1.0').catch(function(){});
+        fetch('/publish?topic=omega&message=0').catch(function(){});
+        trailPts = [];
+    });
+    document.getElementById('stopBtn').addEventListener('click', function() {
+        fetch('/publish?topic=theta&message=0').catch(function(){});
+        fetch('/publish?topic=omega&message=0').catch(function(){});
+        trailPts = [];
+    });
+    document.getElementById('moonBtn').addEventListener('click', function() {
+        var g = document.getElementById('cG');
+        g.value = '1.6';
+        g.dispatchEvent(new Event('input'));
+    });
+})();
+</script>
+</body>
+</html>

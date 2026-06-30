@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Controls</title>
+    <link rel="stylesheet" href="/app/theme.css">
+    <style>
+        body { padding: 14px; }
+        .group {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .group-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 12px;
+        }
+        .group-icon {
+            display: grid; place-items: center;
+            width: 24px; height: 24px;
+            border-radius: 6px;
+            background: var(--surface-3);
+            border: 1px solid var(--border);
+        }
+        .group-icon svg { width: 13px; height: 13px; stroke-width: 2; }
+        .group.deploy .group-icon { background: var(--agent-bg); border-color: var(--agent-border); color: var(--agent); }
+        .group.publish .group-icon { background: var(--topic-bg); border-color: var(--topic-border); color: var(--topic); }
+        .group-title {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+        .group-sub {
+            font-family: var(--font-sans);
+            font-size: var(--text-xs);
+            color: var(--text-faint);
+            margin-left: auto;
+            text-transform: none;
+            letter-spacing: 0;
+            font-weight: 400;
+        }
+        .group-stack { display: flex; flex-direction: column; gap: 10px; }
+        .status {
+            min-height: 18px;
+            margin-top: 4px;
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--text-faint);
+            border: 1px solid transparent;
+            transition: all var(--dur) var(--ease);
+        }
+        .status.info { color: var(--info); background: rgba(56,189,248,.08); border-color: rgba(56,189,248,.2); }
+        .status.ok   { color: var(--topic); background: var(--topic-bg); border-color: var(--topic-border); }
+        .status.err  { color: var(--danger); background: var(--danger-bg); border-color: rgba(239,68,68,.4); }
+        .endpoint {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-faint);
+            letter-spacing: .04em;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border);
+            display: flex; gap: 6px; align-items: center;
+        }
+        .endpoint .method {
+            color: var(--agent);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<form class="group deploy" id="deployForm" onsubmit="return false">
+    <div class="group-header">
+        <div class="group-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </div>
+        <div class="group-title">Deploy Configuration</div>
+        <div class="group-sub">.conf file</div>
+    </div>
+    <div class="group-stack">
+        <div class="field">
+            <label class="field-label" for="confFile">Configuration file</label>
+            <input class="field-file" type="file" id="confFile" accept=".conf,text/plain" aria-describedby="deployHint">
+            <div class="field-hint" id="deployHint">Each agent = 3 lines: class · subs · pubs</div>
+        </div>
+        <button class="btn agent" type="button" onclick="deployConf()" id="deployBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            Deploy
+        </button>
+        <div class="status" id="deployStatus" role="status" aria-live="polite"></div>
+    </div>
+    <div class="endpoint"><span class="method">POST</span><span>/upload</span></div>
+</form>
+
+<form class="group publish" action="/publish" method="get" target="tableFrame" id="publishForm">
+    <div class="group-header">
+        <div class="group-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        </div>
+        <div class="group-title">Publish to Topic</div>
+    </div>
+    <div class="group-stack">
+        <div class="field">
+            <label class="field-label" for="topic">Topic</label>
+            <input class="field-input" type="text" id="topic" name="topic" placeholder="e.g. A" autocomplete="off">
+        </div>
+        <div class="field">
+            <label class="field-label" for="message">Message</label>
+            <input class="field-input" type="text" id="message" name="message" placeholder="numeric value" autocomplete="off">
+        </div>
+        <button class="btn primary" type="submit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            Send
+        </button>
+    </div>
+    <div class="endpoint"><span class="method">GET</span><span>/publish?topic=&hellip;&amp;message=&hellip;</span></div>
+</form>
+
+<script>
+function setStatus(text, kind) {
+    var el = document.getElementById('deployStatus');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'status' + (kind ? ' ' + kind : '');
+}
+
+function deployConf() {
+    var fileInput = document.getElementById('confFile');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        setStatus('Choose a .conf file first.', 'err');
+        return;
+    }
+    var file = fileInput.files[0];
+    var btn = document.getElementById('deployBtn');
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var body = 'filename=' + file.name + '\n\n' + e.target.result;
+        btn.disabled = true;
+        setStatus('uploading ' + file.name + '…', 'info');
+        fetch('/upload', { method: 'POST', body: body, headers: { 'Content-Type': 'text/plain' } })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                var graphFrame = parent.document.querySelector('iframe[name="graphFrame"]');
+                if (graphFrame) graphFrame.srcdoc = html;
+                setStatus('deployed: ' + file.name, 'ok');
+                btn.disabled = false;
+            })
+            .catch(function(err) {
+                setStatus('error: ' + err, 'err');
+                btn.disabled = false;
+            });
+    };
+    reader.readAsText(file);
+}
+</script>
+
+</body>
+</html>

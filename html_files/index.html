@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PubSub Console — Real-Time Computational Graph</title>
+    <link rel="stylesheet" href="/app/theme.css">
+    <style>
+        html, body { height: 100%; }
+        main.console {
+            display: grid;
+            grid-template-columns: 320px 1fr 280px;
+            gap: 14px;
+            padding: 14px;
+            height: calc(100vh - 60px);
+        }
+        @media (max-width: 1100px) {
+            main.console { grid-template-columns: 280px 1fr 240px; }
+        }
+        @media (max-width: 900px) {
+            main.console { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 60px); }
+            main.console .pane { min-height: 320px; }
+        }
+        .pane-graph .pane-title .live-meta {
+            margin-left: auto;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--text-faint);
+            letter-spacing: .04em;
+            text-transform: none;
+        }
+    </style>
+</head>
+<body>
+
+<header class="app-header" role="banner">
+    <div class="brand">
+        <div class="brand-mark" aria-hidden="true">⌘</div>
+        <div>
+            <div class="brand-name">PubSub Console</div>
+            <div style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-faint); letter-spacing:.05em">advanced programming · final project</div>
+        </div>
+    </div>
+    <span class="brand-tag">computational graph</span>
+    <div class="header-spacer"></div>
+    <span class="status-led">live · 8080</span>
+    <a class="nav-link" href="/app/pendulum.html" aria-label="Open pendulum simulator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="4" r="1.5"/><line x1="12" y1="5.5" x2="12" y2="18"/><circle cx="12" cy="20" r="2.5"/></svg>
+        Pendulum
+    </a>
+</header>
+
+<main class="console" role="main">
+    <section class="pane" aria-labelledby="ctrlTitle">
+        <div class="pane-title">
+            <span class="dot"></span>
+            <span id="ctrlTitle">Controls</span>
+        </div>
+        <iframe class="pane-frame" name="formFrame" title="Controls" src="/app/from.html"></iframe>
+    </section>
+
+    <section class="pane pane-graph" aria-labelledby="graphTitle">
+        <div class="pane-title agent-tone live">
+            <span class="dot"></span>
+            <span id="graphTitle">Computational Graph</span>
+            <span class="live-meta">live · auto-rendered from TopicManager</span>
+        </div>
+        <iframe class="pane-frame" name="graphFrame" title="Computational graph" src="/app/temp.html"></iframe>
+    </section>
+
+    <section class="pane" aria-labelledby="topicsTitle">
+        <div class="pane-title output-tone live">
+            <span class="dot"></span>
+            <span id="topicsTitle">Topic Values</span>
+        </div>
+        <iframe class="pane-frame" name="tableFrame" title="Topic values" src="/publish"></iframe>
+    </section>
+</main>
+
+</body>
+</html>
