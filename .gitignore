@@ -1,6 +1,9 @@
 out/
 doc/
 *.class
+*.pdf
+SCRIPT.md
+.claude/
 .DS_Store
 .idea/
 *.iml

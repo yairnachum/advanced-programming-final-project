@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import configs.Pendulum;
+import graph.TopicManagerSingleton;
 import server.RequestParser.RequestInfo;
 
 /**
@@ -51,6 +53,20 @@ public class HtmlLoader implements Servlet {
         if (!Files.exists(file) || Files.isDirectory(file)) {
             writeNotFound(toClient);
             return;
+        }
+
+        // Lazy-boot the pendulum pipeline the first time its page is served.
+        // Keeps the main dashboard registry empty until the user explicitly
+        // opens the pendulum simulator. On the reverse direction — navigating
+        // back to the main console — stop the pendulum and clear its topics
+        // so the dashboard's topic table doesn't keep showing pendulum state.
+        // We only clear when the pendulum was the thing producing topics; if
+        // the user had a configuration loaded, leave it untouched.
+        if (relativePath.endsWith("pendulum.html")) {
+            Pendulum.start();
+        } else if (relativePath.endsWith("index.html") && Pendulum.isRunning()) {
+            Pendulum.stop();
+            TopicManagerSingleton.get().clear();
         }
 
         byte[] content = Files.readAllBytes(file);

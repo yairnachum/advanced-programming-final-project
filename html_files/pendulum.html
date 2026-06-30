@@ -112,17 +112,17 @@
         }
         .agent-label {
             font-family: 'Fira Code', monospace;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             fill: var(--agent);
             text-anchor: middle;
         }
         .agent-formula {
             font-family: 'Fira Code', monospace;
-            font-size: 9px;
+            font-size: 8px;
             fill: var(--text-muted);
             text-anchor: middle;
-            letter-spacing: .02em;
+            letter-spacing: .01em;
         }
         .edge { fill: none; }
         .edge.tick    { stroke: #ec4899; stroke-width: 2; }
@@ -283,7 +283,7 @@
             <span class="live-meta">topics · agents · live values</span>
         </div>
         <div class="canvas-wrap">
-            <svg class="graph" id="graph" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid meet">
+            <svg class="graph" id="graph" viewBox="0 0 1000 820" preserveAspectRatio="xMidYMid meet">
                 <defs>
                     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                         <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
@@ -299,9 +299,9 @@
                     </marker>
                 </defs>
 
-                <text class="col-header" x="120" y="35">Parameters</text>
-                <text class="col-header" x="450" y="35">Compute Pipeline</text>
-                <text class="col-header" x="780" y="35">Output</text>
+                <text class="col-header" x="130" y="35">Parameters</text>
+                <text class="col-header" x="500" y="35">Compute Pipeline</text>
+                <text class="col-header" x="870" y="35">Output</text>
 
                 <g id="edges"></g>
                 <g id="nodes"></g>
@@ -355,6 +355,11 @@
                 <input type="range" id="cD" min="0" max="2" step="0.01" value="0.10">
                 <span class="val" id="vD">0.10</span>
             </div>
+            <div class="ctrl">
+                <label for="cR">rate (Hz)</label>
+                <input type="range" id="cR" min="2" max="60" step="1" value="30">
+                <span class="val" id="vR">30</span>
+            </div>
         </div>
         <div class="actions">
             <button class="btn" id="kickBtn" type="button">
@@ -379,23 +384,27 @@
     // GRAPH DEFINITION — matches Java agent wiring.
     // ============================================================
     var NODES = [
-        { id: 'gravity', kind: 'topic', x: 120, y: 80,  fmt: 'dec2', unit: 'm/s²' },
-        { id: 'length',  kind: 'topic', x: 120, y: 165, fmt: 'dec2', unit: 'm' },
-        { id: 'damping', kind: 'topic', x: 120, y: 250, fmt: 'dec2', unit: '1/s' },
-        { id: 'dt',      kind: 'topic', x: 120, y: 335, fmt: 'dec3', unit: 's' },
-        { id: 'clock',   kind: 'agent', x: 120, y: 450, label: 'ClockAgent', formula: '30 Hz tick' },
-        { id: 'tick',    kind: 'topic', x: 120, y: 560, fmt: 'int',  unit: 'n' },
-        { id: 'torque',  kind: 'agent', x: 450, y: 130, label: 'TorqueAgent', formula: '-(g/L)·sin(θ)-bω' },
-        { id: 'alpha',   kind: 'topic', x: 450, y: 250, fmt: 'dec3', unit: 'rad/s²', output: true },
-        { id: 'v_int',   kind: 'agent', x: 450, y: 370, label: 'VelocityIntegrator', formula: 'ω += α·dt' },
-        { id: 'p_int',   kind: 'agent', x: 450, y: 570, label: 'PositionIntegrator', formula: 'θ += ω·dt' },
-        { id: 'omega',   kind: 'topic', x: 780, y: 370, fmt: 'dec3', unit: 'rad/s', output: true },
-        { id: 'theta',   kind: 'topic', x: 780, y: 570, fmt: 'dec3', unit: 'rad', output: true, big: true }
+        { id: 'gravity', kind: 'topic', x: 130, y: 80,  fmt: 'dec2', unit: 'm/s²' },
+        { id: 'length',  kind: 'topic', x: 130, y: 175, fmt: 'dec2', unit: 'm' },
+        { id: 'damping', kind: 'topic', x: 130, y: 270, fmt: 'dec2', unit: '1/s' },
+        { id: 'dt',      kind: 'topic', x: 130, y: 365, fmt: 'dec3', unit: 's' },
+        { id: 'rate',    kind: 'topic', x: 130, y: 460, fmt: 'dec1', unit: 'Hz' },
+        { id: 'clock',   kind: 'agent', x: 130, y: 595, label: ['Clock', 'Agent'], formula: 'tick source' },
+        { id: 'tick',    kind: 'topic', x: 130, y: 730, fmt: 'int',  unit: 'n' },
+        { id: 'torque',  kind: 'agent', x: 500, y: 150, label: ['Torque', 'Agent'], formula: '-(g/L)·sin(θ)-bω' },
+        { id: 'alpha',   kind: 'topic', x: 500, y: 320, fmt: 'dec3', unit: 'rad/s²', output: true },
+        { id: 'v_int',   kind: 'agent', x: 500, y: 470, label: ['Velocity', 'Integrator'], formula: 'ω += α·dt' },
+        { id: 'p_int',   kind: 'agent', x: 500, y: 670, label: ['Position', 'Integrator'], formula: 'θ += ω·dt' },
+        { id: 'omega',   kind: 'topic', x: 870, y: 470, fmt: 'dec3', unit: 'rad/s', output: true },
+        { id: 'theta',   kind: 'topic', x: 870, y: 670, fmt: 'dec3', unit: 'rad', output: true, big: true }
     ];
 
     var EDGES = [
+        { from: 'rate',    to: 'clock',   type: 'param' },
         { from: 'clock',   to: 'tick',    type: 'tick',    pulse: true },
-        { from: 'tick',    to: 'torque',  type: 'tick',    pulse: true },
+        // tick → torque is forced horizontal so the edge doesn't run vertically
+        // along x=120 and pierce the clock agent on the way up.
+        { from: 'tick',    to: 'torque',  type: 'tick',    pulse: true, sides: ['right', 'left'] },
         { from: 'gravity', to: 'torque',  type: 'param' },
         { from: 'length',  to: 'torque',  type: 'param' },
         { from: 'damping', to: 'torque',  type: 'param' },
@@ -406,8 +415,12 @@
         { from: 'omega',   to: 'p_int',   type: 'compute', pulse: true },
         { from: 'dt',      to: 'p_int',   type: 'param' },
         { from: 'p_int',   to: 'theta',   type: 'compute', pulse: true },
-        { from: 'theta',   to: 'torque',  type: 'feedback' },
-        { from: 'omega',   to: 'torque',  type: 'feedback' }
+        // Both feedback edges loop into torque from the right side; stagger
+        // their entry y so the two arrowheads don't overlap. theta routes via
+        // torque's right (not bottom, which collides with the alpha output) so
+        // it doesn't run vertically along x=780 through omega.
+        { from: 'theta',   to: 'torque',  type: 'feedback', sides: ['left', 'right'], toOffset: 30 },
+        { from: 'omega',   to: 'torque',  type: 'feedback', sides: ['left', 'right'], toOffset: -30 }
     ];
     var byId = {};
     NODES.forEach(function(n) { byId[n.id] = n; });
@@ -416,6 +429,7 @@
         if (v == null) return '—';
         switch (f) {
             case 'int':  return Math.round(v).toString();
+            case 'dec1': return Number(v).toFixed(1);
             case 'dec2': return Number(v).toFixed(2);
             case 'dec3': return Number(v).toFixed(3);
             default:     return Number(v).toFixed(2);
@@ -450,31 +464,41 @@
             unit.textContent = n.unit || '';
             g.appendChild(unit);
         } else if (n.kind === 'agent') {
-            var c = svgEl('circle', { cx: n.x, cy: n.y, r: 42, class: 'agent-circle', id: 'circ-' + n.id });
+            var c = svgEl('circle', { cx: n.x, cy: n.y, r: 55, class: 'agent-circle', id: 'circ-' + n.id });
             g.appendChild(c);
-            var label = svgEl('text', { x: n.x, y: n.y - 4, class: 'agent-label' });
-            label.textContent = n.label;
-            g.appendChild(label);
-            var formula = svgEl('text', { x: n.x, y: n.y + 12, class: 'agent-formula' });
+            // labels are arrays so long names ("VelocityIntegrator") can be
+            // stacked over two lines and stay inside the circle.
+            var lines = Array.isArray(n.label) ? n.label : [n.label];
+            var labelTopY = n.y - 14;
+            for (var li = 0; li < lines.length; li++) {
+                var line = svgEl('text', { x: n.x, y: labelTopY + li * 12, class: 'agent-label' });
+                line.textContent = lines[li];
+                g.appendChild(line);
+            }
+            var formula = svgEl('text', { x: n.x, y: n.y + 22, class: 'agent-formula' });
             formula.textContent = n.formula;
             g.appendChild(formula);
         }
         nodesG.appendChild(g);
     });
 
-    function anchor(node, side) {
+    // anchor() returns the point on `node`'s border for the given side. An
+    // optional `offset` shifts the anchor along the side (positive = the
+    // natural increasing direction: down on left/right, right on top/bottom)
+    // so multiple edges into the same side can fan out instead of overlapping.
+    function anchor(node, side, offset) {
+        offset = offset || 0;
+        var w, h;
         if (node.kind === 'topic') {
-            var w = node.big ? 130 : 95, h = node.big ? 60 : 52;
-            if (side === 'right')  return { x: node.x + w/2, y: node.y };
-            if (side === 'left')   return { x: node.x - w/2, y: node.y };
-            if (side === 'top')    return { x: node.x, y: node.y - h/2 };
-            if (side === 'bottom') return { x: node.x, y: node.y + h/2 };
+            w = node.big ? 130 : 95;
+            h = node.big ? 60 : 52;
         } else {
-            if (side === 'right')  return { x: node.x + 42, y: node.y };
-            if (side === 'left')   return { x: node.x - 42, y: node.y };
-            if (side === 'top')    return { x: node.x, y: node.y - 42 };
-            if (side === 'bottom') return { x: node.x, y: node.y + 42 };
+            w = h = 110; // agent circle diameter (must match the `r:` in nodesG loop)
         }
+        if (side === 'right')  return { x: node.x + w/2, y: node.y + offset };
+        if (side === 'left')   return { x: node.x - w/2, y: node.y + offset };
+        if (side === 'top')    return { x: node.x + offset, y: node.y - h/2 };
+        if (side === 'bottom') return { x: node.x + offset, y: node.y + h/2 };
     }
     function pickSides(from, to) {
         var dx = to.x - from.x, dy = to.y - from.y;
@@ -483,21 +507,34 @@
         }
         return [dy > 0 ? 'bottom' : 'top', dy > 0 ? 'top' : 'bottom'];
     }
-    function curvePath(a, b) {
-        var dx = b.x - a.x, dy = b.y - a.y;
-        if (Math.abs(dx) > Math.abs(dy)) {
-            var mid = a.x + dx * 0.5;
-            return 'M ' + a.x + ' ' + a.y + ' C ' + mid + ' ' + a.y + ' ' + mid + ' ' + b.y + ' ' + b.x + ' ' + b.y;
-        }
-        var midY = a.y + dy * 0.5;
-        return 'M ' + a.x + ' ' + a.y + ' C ' + a.x + ' ' + midY + ' ' + b.x + ' ' + midY + ' ' + b.x + ' ' + b.y;
+    // Tangent vector for a side, pointing AWAY from the node, scaled by `mag`.
+    function tangent(side, mag) {
+        if (side === 'right')  return { x:  mag, y: 0 };
+        if (side === 'left')   return { x: -mag, y: 0 };
+        if (side === 'top')    return { x: 0, y: -mag };
+        return                        { x: 0, y:  mag };
+    }
+    // Builds a cubic Bezier whose end tangents match `fromSide` and `toSide`,
+    // so the curve leaves and enters its endpoints in the right direction
+    // (curvePath used to ignore the chosen sides and pick a branch from dx/dy).
+    function curvePath(a, b, fromSide, toSide) {
+        var dist = Math.sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
+        var mag = Math.max(40, Math.min(140, dist * 0.45));
+        var t1 = tangent(fromSide, mag);
+        var t2 = tangent(toSide,   mag);
+        var c1x = a.x + t1.x, c1y = a.y + t1.y;
+        var c2x = b.x + t2.x, c2y = b.y + t2.y;
+        return 'M ' + a.x + ' ' + a.y +
+               ' C ' + c1x + ' ' + c1y + ' ' + c2x + ' ' + c2y + ' ' + b.x + ' ' + b.y;
     }
 
     EDGES.forEach(function(e) {
         var from = byId[e.from], to = byId[e.to];
-        var sides = pickSides(from, to);
+        var sides = e.sides || pickSides(from, to);
+        var a = anchor(from, sides[0], e.fromOffset);
+        var b = anchor(to,   sides[1], e.toOffset);
         var path = svgEl('path', {
-            d: curvePath(anchor(from, sides[0]), anchor(to, sides[1])),
+            d: curvePath(a, b, sides[0], sides[1]),
             class: 'edge ' + e.type + (e.pulse ? ' pulse' : ''),
             'marker-end': 'url(#arr' + (
                 e.type === 'tick' ? '-tick' :
@@ -612,6 +649,7 @@
     bindSlider('cG', 'gravity', 'vG', 2);
     bindSlider('cL', 'length',  'vL', 2);
     bindSlider('cD', 'damping', 'vD', 2);
+    bindSlider('cR', 'rate',    'vR', 0);
 
     document.getElementById('kickBtn').addEventListener('click', function() {
         fetch('/publish?topic=theta&message=1.0').catch(function(){});

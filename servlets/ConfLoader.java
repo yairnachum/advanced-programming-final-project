@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import configs.GenericConfig;
+import configs.Pendulum;
 import graph.Graph;
 import graph.TopicManagerSingleton;
 import server.RequestParser.RequestInfo;
@@ -29,6 +30,9 @@ public class ConfLoader implements Servlet {
         byte[] content = ri.getContent();
         String body = content != null ? new String(content) : "";
 
+        // Stop the pendulum first (if running) so its ClockAgent thread
+        // doesn't keep republishing to "tick" after the registry is cleared.
+        Pendulum.stop();
         TopicManagerSingleton.get().clear();
 
         String responseHtml;
