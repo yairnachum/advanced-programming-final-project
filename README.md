@@ -8,34 +8,42 @@ The final exercise (Ex6) also includes a real‑time **pendulum simulator** buil
 
 ---
 
-## Screenshots
+## Demo video
 
-> _Screenshots will be added below — placeholders for now._
+A short walkthrough of the project — building a graph from a config, publishing values, and the pendulum simulator extension.
 
-**Main dashboard** — controls, computational graph, live topic values:
-
-<!-- SCREENSHOT_DASHBOARD -->
-_(screenshot pending)_
-
-**Configuration deploy + graph visualisation:**
-
-<!-- SCREENSHOT_GRAPH -->
-_(screenshot pending)_
-
-**Pendulum simulator (extension):**
-
-<!-- SCREENSHOT_PENDULUM -->
-_(screenshot pending)_
+**Watch it here:** <https://drive.google.com/file/d/1fqHFLff40Knv5L9Eikw_BGbsQwVzEIx3/view?usp=sharing>
 
 ---
 
 ## Quick start
 
-Requires JDK 8+. No external dependencies — the project uses only `java.*`.
+**Requirements:** JDK 8 or newer (`javac -version` should print `1.8` or higher). No external dependencies — the project uses only `java.*`.
 
+**First-time setup:** clone the repo (or unzip the submission), `cd` into the project root (the folder that contains `Main.java`), and pick the build snippet for your shell.
+
+### Build & run
+
+**macOS / Linux (bash, zsh):**
 ```bash
 # from project root
 javac -d out $(find graph configs server servlets views -name '*.java') Main.java
+java -cp out Main
+```
+
+**Windows PowerShell:**
+```powershell
+# from project root
+$sources = Get-ChildItem -Recurse -Include *.java graph,configs,server,servlets,views | ForEach-Object { $_.FullName }
+javac -d out $sources Main.java
+java -cp out Main
+```
+
+**Windows CMD:**
+```cmd
+:: from project root
+dir /s /b graph\*.java configs\*.java server\*.java servlets\*.java views\*.java Main.java > sources.txt
+javac -d out @sources.txt
 java -cp out Main
 ```
 

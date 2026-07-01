@@ -22,6 +22,34 @@ import servlets.Servlet;
  * dispatches each one to the {@link Servlet} whose registered URI is
  * the longest prefix of the request URI for the matching HTTP method.
  * Per-client work runs on a fixed-size thread pool.
+ *
+ * <p>The class extends {@link Thread}: calling {@link #start()} launches
+ * the accept loop on that thread; the caller may then block on user
+ * input (or any other latch) and finally call {@link #close()} to
+ * release the socket, worker pool, and every registered
+ * {@link Servlet}.
+ *
+ * <h2>Usage</h2>
+ *
+ * <pre>{@code
+ * // 1. Server on port 8080 with 4 worker threads.
+ * MyHTTPServer server = new MyHTTPServer(8080, 4);
+ *
+ * // 2. Register handlers. Longest URI prefix wins per method.
+ * server.addServlet("GET",  "/app/",   new HtmlLoader("html_files"));
+ * server.addServlet("POST", "/publish", new TopicDisplayer());
+ *
+ * // 3. Fire the accept loop on a background thread.
+ * server.start();
+ *
+ * // 4. Block main until the operator hits Enter, then shut down.
+ * System.in.read();
+ * server.close();
+ * }</pre>
+ *
+ * @see HTTPServer
+ * @see RequestParser
+ * @see Servlet
  */
 public class MyHTTPServer extends Thread implements HTTPServer{
 

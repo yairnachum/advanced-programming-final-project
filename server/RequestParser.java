@@ -11,6 +11,31 @@ import java.util.Map;
  * Hand-rolled HTTP request reader. Parses the method, URI, query-string
  * parameters, any body lines that look like {@code key=value}, and the
  * remaining body content into a {@link RequestInfo}.
+ *
+ * <p>Used by {@link MyHTTPServer#run()} once per accepted connection,
+ * but the class is {@code public} and can be invoked directly against
+ * any {@link BufferedReader} &mdash; convenient for unit tests.
+ *
+ * <h2>Usage</h2>
+ *
+ * <pre>{@code
+ * String raw =
+ *     "GET /topics?name=A&val=5 HTTP/1.1\r\n" +
+ *     "Host: localhost\r\n" +
+ *     "\r\n";
+ *
+ * BufferedReader reader = new BufferedReader(new StringReader(raw));
+ * RequestParser.RequestInfo ri = RequestParser.parseRequest(reader);
+ *
+ * ri.getHttpCommand();        // "GET"
+ * ri.getUri();                // "/topics?name=A&val=5"
+ * ri.getUriSegments();        // { "topics" }
+ * ri.getParameters().get("name"); // "A"
+ * ri.getParameters().get("val");  // "5"
+ * }</pre>
+ *
+ * @see RequestInfo
+ * @see servlets.Servlet#handle(RequestInfo, java.io.OutputStream)
  */
 public class RequestParser {
 
@@ -77,7 +102,21 @@ public class RequestParser {
 
 	/**
 	 * Immutable snapshot of a parsed HTTP request, exposed to servlets
-	 * through {@code servlets.Servlet#handle}.
+	 * through {@link servlets.Servlet#handle(RequestInfo, java.io.OutputStream)}.
+	 *
+	 * <p>A typical servlet reads the URI segments and the merged
+	 * parameter map to decide what to do:
+	 *
+	 * <pre>{@code
+	 * public void handle(RequestInfo ri, OutputStream out) throws IOException {
+	 *     // /publish?topic=A&value=5  ->  segments={"publish"}, params={topic=A,value=5}
+	 *     String topic = ri.getParameters().get("topic");
+	 *     String value = ri.getParameters().get("value");
+	 *     // ... do work, then write the HTTP response to out ...
+	 * }
+	 * }</pre>
+	 *
+	 * @see RequestParser#parseRequest(BufferedReader)
 	 */
     public static class RequestInfo {
         private final String httpCommand;
