@@ -12,7 +12,9 @@ The final exercise (Ex6) also includes a real‑time **pendulum simulator** buil
 
 A short walkthrough of the project — building a graph from a config, publishing values, and the pendulum simulator extension.
 
-**Watch it here:** <https://drive.google.com/file/d/1fqHFLff40Knv5L9Eikw_BGbsQwVzEIx3/view?usp=sharing>
+[![Watch the demo](https://drive.google.com/thumbnail?id=1fqHFLff40Knv5L9Eikw_BGbsQwVzEIx3&sz=w1200)](https://drive.google.com/file/d/1fqHFLff40Knv5L9Eikw_BGbsQwVzEIx3/view?usp=sharing)
+
+_Click the thumbnail to watch on Google Drive._
 
 ---
 
