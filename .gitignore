@@ -3,6 +3,8 @@ doc/
 *.class
 *.pdf
 SCRIPT.md
+GEMINI_PROMPT.md
+GEMINI_PROMPT_SUMMARY.md
 .claude/
 .DS_Store
 .idea/
