@@ -5,6 +5,8 @@ doc/
 SCRIPT.md
 GEMINI_PROMPT.md
 GEMINI_PROMPT_SUMMARY.md
+link.txt
+Ex5Tests.java
 .claude/
 .DS_Store
 .idea/

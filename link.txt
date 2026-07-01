@@ -1,4 +1,0 @@
-Yair Nachum
-ID: 322270646
-Email: yairnachum@gmail.com
-Repository: https://github.com/yairnachum/advanced-programming-final-project
